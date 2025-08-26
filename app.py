@@ -179,9 +179,47 @@ elif choice == "Predict Diabetes":
 # Menu: Data Visualization
 # ------------------------
 elif choice == "Data Visualization":
-    # Visualization
     st.subheader("Correlation Matrix of Features")
     fig, ax = plt.subplots()
     sns.heatmap(df.corr(), annot=True, cmap='coolwarm', ax=ax)
     st.pyplot(fig)
 
+    st.subheader("Model Performance Comparison")
+
+    if os.path.exists("scaler.joblib"):
+        scaler = joblib.load("scaler.joblib")
+    else:
+        st.error("Scaler not found. Please train models first.")
+        st.stop()
+
+    X = df.drop('Outcome', axis=1)
+    y = df['Outcome']
+    X_scaled = scaler.transform(X)
+
+    model_names = ["Logistic Regression", "Random Forest", "SVM"]
+    results = []
+
+    for name in model_names:
+        model = load_model(name)
+        if model:
+            y_pred = model.predict(X_scaled)
+            acc = accuracy_score(y, y_pred)
+            prec = precision_score(y, y_pred, average='weighted', zero_division=0)
+            rec = recall_score(y, y_pred, average='weighted')
+            f1 = f1_score(y, y_pred, average='weighted')
+            results.append({"Model": name, "Accuracy": acc, "Precision": prec, "Recall": rec, "F1 Score": f1})
+
+    if results:
+        results_df = pd.DataFrame(results)
+        st.write("### Model Metrics")
+        st.dataframe(results_df)
+
+        st.write("### Comparison of Classification Methods")
+        fig2, ax2 = plt.subplots(figsize=(10, 6))
+        melted_df = results_df.melt(id_vars='Model', var_name='Metric', value_name='Score')
+        sns.barplot(data=melted_df, x='Metric', y='Score', hue='Model', ax=ax2)
+        ax2.set_title('Model Performance Comparison')
+        ax2.set_ylim(0, 1)
+        st.pyplot(fig2)
+    else:
+        st.warning("No models found. Please train models first.")
